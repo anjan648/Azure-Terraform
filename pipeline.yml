@@ -1,0 +1,57 @@
+trigger:
+  - main
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Build
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: TerraformTaskV4@4
+            displayName: terraform init
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              backendServiceArm: 'Pay-As-You-Go(f72a43e3-cb09-48c1-859e-3bc1aa184908)'
+              backendAzureRmResourceGroupName: 'demo-resource'
+              backendAzureRmStorageAccountName: 'azureterraform1'
+              backendAzureRmContainerName: 'prod-tfstate'
+              backendAzureRmKey: 'prod.terraform.tfstate'
+
+          - task: TerraformTaskV4@4
+            displayName: terraform validate
+            inputs:
+              provider: 'azurerm'
+              command: 'validate'
+
+          - task: TerraformTaskV4@4
+            displayName: terraform fmt
+            inputs:
+              provider: 'azurerm'
+              command: 'custom'
+              outputTo: 'console'
+              customCommand: 'fmt'
+              environmentServiceNameAzureRM: 'Pay-As-You-Go(f72a43e3-cb09-48c1-859e-3bc1aa184908)'
+
+          - task: TerraformTaskV4@4
+            displayName: terraform plan
+            inputs:
+              provider: 'azurerm'
+              command: 'plan'
+              commandOptions: '-out $(Build.SourcesDirectory)/tfplanfile'
+              environmentServiceNameAzureRM: 'Pay-As-You-Go(f72a43e3-cb09-48c1-859e-3bc1aa184908)'
+
+          - task: ArchiveFiles@2
+            displayName: Archive files
+            inputs:
+              rootFolderOrFile: '$(Build.SourcesDirectory)'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+              replaceExistingArchive: true
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: '$(Build.BuildId)-build'
+              publishLocation: 'Container'
